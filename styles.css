@@ -1,0 +1,23 @@
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;margin:0;background:#f6f7fb;color:#222}
+header{background:#0d47a1;color:#fff;padding:18px 20px}
+header h1{margin:0 0 4px 0;font-size:22px}
+header p{margin:0;font-size:14px;opacity:.9}
+.container{max-width:1150px;margin:18px auto;padding:0 12px}
+.card{background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 4px 20px rgba(13,25,66,.06);margin-bottom:14px}
+.row{display:flex;gap:12px;align-items:center;margin:8px 0;flex-wrap:wrap}
+label{min-width:140px;font-weight:600}
+select,button{padding:10px 12px;border:1px solid #d9dbe9;border-radius:10px;background:#fff}
+button{background:#0d47a1;color:#fff;border:none;cursor:pointer}
+button:hover{opacity:.95}
+.speech .scale{margin-top:8px;font-size:13px;color:#333}
+.questions table{width:100%;border-collapse:collapse}
+.questions th,.questions td{border-bottom:1px solid #eee;padding:10px;vertical-align:top}
+.questions th{background:#fafbff}
+.questions input[type=number]{width:80px;padding:8px;border:1px solid #d9dbe9;border-radius:8px}
+.results .stats{display:flex;gap:24px;margin-bottom:8px}
+footer{padding:10px 16px;color:#666;text-align:center}
+@media print{
+  header, .controls, footer{display:none}
+  .card{box-shadow:none}
+}
