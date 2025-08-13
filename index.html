@@ -7,6 +7,59 @@
   <link rel="stylesheet" href="styles.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="config.js"></script>
+
+  <!-- Modal logic: attach BEFORE app.js so we intercept the reset click -->
+  <script>
+  // Minimal JS just for modal + safe reset using existing app.js helpers
+  (function(){
+    function $(sel){ return document.querySelector(sel); }
+    document.addEventListener('DOMContentLoaded', function(){
+      const resetBtn = document.getElementById('resetBtn');
+      const dlg = document.getElementById('confirmDialog');
+      const who = document.getElementById('whoTarget');
+      const yes = document.getElementById('confirmYes');
+      const no  = document.getElementById('confirmNo');
+
+      if(!resetBtn || !dlg) return;
+
+      // Intercept click BEFORE app.js handlers
+      resetBtn.addEventListener('click', function(ev){
+        // Stop other listeners (like a previous confirm())
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        try {
+          const teamTitle = document.getElementById('teamTitle')?.textContent || 'Área';
+          const person = document.getElementById('personSelect')?.value || 'Interlocutor';
+          who.textContent = teamTitle + ' – ' + person;
+        } catch(_){}
+        dlg.showModal();
+      }, true);
+
+      no?.addEventListener('click', function(){
+        dlg.close();
+      });
+
+      yes?.addEventListener('click', function(){
+        try {
+          // Use global helpers from app.js if present
+          if (window.saveState && window.buildTable && window.teamSelect && window.personSelect) {
+            window.saveState(window.teamSelect.value, window.personSelect.value, {});
+            window.buildTable(window.teamSelect.value, window.personSelect.value);
+          } else {
+            // fallback: clear localStorage key format used in app.js
+            const team = document.getElementById('teamSelect')?.value;
+            const person = document.getElementById('personSelect')?.value;
+            if (team && person) {
+              localStorage.removeItem('petropack_taller_' + team + '_' + person);
+              location.reload();
+            }
+          }
+        } catch(e){ console.warn(e); }
+        dlg.close();
+      });
+    });
+  })();
+  </script>
 </head>
 <body>
   <header>
@@ -25,10 +78,11 @@
         <select id="personSelect"></select>
       </div>
       <div class="row">
-        <button id="newCopyBtn">Duplicar ejemplar para este interlocutor</button>
-        <button id="resetBtn">Reiniciar puntajes</button>
-        <button id="exportCsvBtn">Exportar CSV (este interlocutor)</button>
-        <button id="exportJsonBtn">Exportar JSON (este interlocutor)</button>
+        <!-- Ocultamos los botones pedidos (se mantienen en el DOM para no romper app.js) -->
+        <button id="newCopyBtn" class="is-hidden" disabled>Duplicar ejemplar para este interlocutor</button>
+        <button id="resetBtn" class="danger">Reiniciar puntajes</button>
+        <button id="exportCsvBtn" class="is-hidden" disabled>Exportar CSV (este interlocutor)</button>
+        <button id="exportJsonBtn" class="is-hidden" disabled>Exportar JSON (este interlocutor)</button>
       </div>
       <div class="row">
         <button id="exportAllBtn">Exportar TODO (CSV consolidado)</button>
@@ -44,26 +98,29 @@
       </div>
     </section>
 
-    <section class="questions card">
-      <table id="questionsTable">
-        <thead>
-          <tr>
-            <th style="width:40%">Enunciado</th>
-            <th style="width:30%">Ejemplo aclaratorio</th>
-            <th style="width:20%">KPI de referencia</th>
-            <th style="width:10%">Puntaje (1–5)</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
+    <!-- Nueva grilla: tabla compacta a la izquierda, radar a la derecha -->
+    <section class="workgrid">
+      <section class="questions card">
+        <table id="questionsTable">
+          <thead>
+            <tr>
+              <th>Enunciado</th>
+              <th>Ejemplo aclaratorio</th>
+              <th>KPI de referencia</th>
+              <th>Puntaje (1–5)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
 
-    <section class="results card">
-      <div class="stats">
-        <div><strong>Promedio del área:</strong> <span id="avgArea">—</span></div>
-        <div><strong>% de excelencia del área:</strong> <span id="pctArea">—</span></div>
-      </div>
-      <canvas id="radarChart" height="220"></canvas>
+      <section class="results card">
+        <div class="stats">
+          <div><strong>Promedio del área:</strong> <span id="avgArea">—</span></div>
+          <div><strong>% de excelencia del área:</strong> <span id="pctArea">—</span></div>
+        </div>
+        <canvas id="radarChart" height="280"></canvas>
+      </section>
     </section>
   </main>
 
@@ -71,6 +128,19 @@
     <small>© Taller Interactivo · Petropack 2030</small>
   </footer>
 
+  <!-- Modal nativo <dialog> para confirmación -->
+  <dialog id="confirmDialog" class="confirm-dialog">
+    <div class="dialog-body">
+      <h3>Reiniciar puntajes</h3>
+      <p>¿Estás seguro de que querés reiniciar los puntajes de <strong id="whoTarget"></strong>? Esta acción no se puede deshacer.</p>
+      <div class="dialog-actions">
+        <button id="confirmYes" class="danger">Sí, reiniciar</button>
+        <button id="confirmNo" class="ghost">Cancelar</button>
+      </div>
+    </div>
+  </dialog>
+
   <script src="app.js"></script>
 </body>
 </html>
+
