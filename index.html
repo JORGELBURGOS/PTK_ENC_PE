@@ -6,6 +6,7 @@
   <title>Taller Interactivo – Diagnóstico Estratégico Petropack 2030</title>
   <link rel="stylesheet" href="styles.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="config.js"></script>
 </head>
 <body>
   <header>
@@ -26,9 +27,12 @@
       <div class="row">
         <button id="newCopyBtn">Duplicar ejemplar para este interlocutor</button>
         <button id="resetBtn">Reiniciar puntajes</button>
-        <button id="exportCsvBtn">Exportar CSV</button>
-        <button id="exportJsonBtn">Exportar JSON</button>
-        <button id="printBtn">Imprimir / PDF</button>
+        <button id="exportCsvBtn">Exportar CSV (este interlocutor)</button>
+        <button id="exportJsonBtn">Exportar JSON (este interlocutor)</button>
+      </div>
+      <div class="row">
+        <button id="exportAllBtn">Exportar TODO (CSV consolidado)</button>
+        <button id="sendRepoBtn">Enviar TODO al repositorio</button>
       </div>
     </section>
 
