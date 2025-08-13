@@ -8,9 +8,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="config.js"></script>
 
-  <!-- Modal logic: attach BEFORE app.js so we intercept the reset click -->
+  <!-- Lógica del modal de confirmación (antes de app.js para interceptar) -->
   <script>
-  // Minimal JS just for modal + safe reset using existing app.js helpers
   (function(){
     function $(sel){ return document.querySelector(sel); }
     document.addEventListener('DOMContentLoaded', function(){
@@ -22,9 +21,8 @@
 
       if(!resetBtn || !dlg) return;
 
-      // Intercept click BEFORE app.js handlers
+      // Intercepta el click antes de otros handlers
       resetBtn.addEventListener('click', function(ev){
-        // Stop other listeners (like a previous confirm())
         ev.preventDefault();
         ev.stopImmediatePropagation();
         try {
@@ -35,18 +33,13 @@
         dlg.showModal();
       }, true);
 
-      no?.addEventListener('click', function(){
-        dlg.close();
-      });
-
+      no?.addEventListener('click', function(){ dlg.close(); });
       yes?.addEventListener('click', function(){
         try {
-          // Use global helpers from app.js if present
           if (window.saveState && window.buildTable && window.teamSelect && window.personSelect) {
             window.saveState(window.teamSelect.value, window.personSelect.value, {});
             window.buildTable(window.teamSelect.value, window.personSelect.value);
           } else {
-            // fallback: clear localStorage key format used in app.js
             const team = document.getElementById('teamSelect')?.value;
             const person = document.getElementById('personSelect')?.value;
             if (team && person) {
@@ -67,6 +60,12 @@
     <p>Autoevaluación por equipos – Puntuar 1–5 (1 = muy lejos · 5 = excelencia)</p>
   </header>
 
+  <!-- Barra lateral derecha con acciones menos usadas -->
+  <aside class="right-actions">
+    <button id="resetBtn" class="danger">Reiniciar puntajes</button>
+    <button id="exportAllBtn">Exportar TODO (CSV consolidado)</button>
+  </aside>
+
   <main class="container">
     <section class="controls card">
       <div class="row">
@@ -78,14 +77,13 @@
         <select id="personSelect"></select>
       </div>
       <div class="row">
-        <!-- Ocultamos los botones pedidos (se mantienen en el DOM para no romper app.js) -->
+        <!-- Ocultos para no romper app.js -->
         <button id="newCopyBtn" class="is-hidden" disabled>Duplicar ejemplar para este interlocutor</button>
-        <button id="resetBtn" class="danger">Reiniciar puntajes</button>
         <button id="exportCsvBtn" class="is-hidden" disabled>Exportar CSV (este interlocutor)</button>
         <button id="exportJsonBtn" class="is-hidden" disabled>Exportar JSON (este interlocutor)</button>
       </div>
       <div class="row">
-        <button id="exportAllBtn">Exportar TODO (CSV consolidado)</button>
+        <!-- Se mantiene aquí para uso frecuente -->
         <button id="sendRepoBtn">Enviar TODO al repositorio</button>
       </div>
     </section>
@@ -98,7 +96,7 @@
       </div>
     </section>
 
-    <!-- Nueva grilla: tabla compacta a la izquierda, radar a la derecha -->
+    <!-- Grilla de trabajo: tabla a la izquierda, radar a la derecha -->
     <section class="workgrid">
       <section class="questions card">
         <table id="questionsTable">
@@ -128,7 +126,7 @@
     <small>© Taller Interactivo · Petropack 2030</small>
   </footer>
 
-  <!-- Modal nativo <dialog> para confirmación -->
+  <!-- Modal de confirmación -->
   <dialog id="confirmDialog" class="confirm-dialog">
     <div class="dialog-body">
       <h3>Reiniciar puntajes</h3>
@@ -143,4 +141,5 @@
   <script src="app.js"></script>
 </body>
 </html>
+
 
