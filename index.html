@@ -60,12 +60,6 @@
     <p>Autoevaluación por equipos – Puntuar 1–5 (1 = muy lejos · 5 = excelencia)</p>
   </header>
 
-  <!-- Barra lateral derecha con acciones menos usadas -->
-  <aside class="right-actions">
-    <button id="resetBtn" class="danger">Reiniciar puntajes</button>
-    <button id="exportAllBtn">Exportar TODO (CSV consolidado)</button>
-  </aside>
-
   <main class="container">
     <section class="controls card">
       <div class="row">
@@ -83,7 +77,7 @@
         <button id="exportJsonBtn" class="is-hidden" disabled>Exportar JSON (este interlocutor)</button>
       </div>
       <div class="row">
-        <!-- Se mantiene aquí para uso frecuente -->
+        <!-- Botón frecuente se mantiene cerca del formulario -->
         <button id="sendRepoBtn">Enviar TODO al repositorio</button>
       </div>
     </section>
@@ -96,7 +90,7 @@
       </div>
     </section>
 
-    <!-- Grilla de trabajo: tabla a la izquierda, radar a la derecha -->
+    <!-- Grilla de trabajo: tabla a la izquierda, radar (con acciones) a la derecha -->
     <section class="workgrid">
       <section class="questions card">
         <table id="questionsTable">
@@ -118,6 +112,12 @@
           <div><strong>% de excelencia del área:</strong> <span id="pctArea">—</span></div>
         </div>
         <canvas id="radarChart" height="280"></canvas>
+
+        <!-- Acciones secundarias a la derecha, no flotantes -->
+        <div class="actions-right">
+          <button id="resetBtn" class="danger">Reiniciar puntajes</button>
+          <button id="exportAllBtn">Exportar TODO (CSV consolidado)</button>
+        </div>
       </section>
     </section>
   </main>
@@ -126,11 +126,11 @@
     <small>© Taller Interactivo · Petropack 2030</small>
   </footer>
 
-  <!-- Modal de confirmación -->
-  <dialog id="confirmDialog" class="confirm-dialog">
+  <!-- Modal de confirmación (nativo <dialog>) -->
+  <dialog id="confirmDialog" class="confirm-dialog" aria-labelledby="confirmTitle" aria-describedby="confirmDesc">
     <div class="dialog-body">
-      <h3>Reiniciar puntajes</h3>
-      <p>¿Estás seguro de que querés reiniciar los puntajes de <strong id="whoTarget"></strong>? Esta acción no se puede deshacer.</p>
+      <h3 id="confirmTitle">Reiniciar puntajes</h3>
+      <p id="confirmDesc">¿Estás seguro de que querés reiniciar los puntajes de <strong id="whoTarget"></strong>? Esta acción no se puede deshacer.</p>
       <div class="dialog-actions">
         <button id="confirmYes" class="danger">Sí, reiniciar</button>
         <button id="confirmNo" class="ghost">Cancelar</button>
@@ -141,5 +141,6 @@
   <script src="app.js"></script>
 </body>
 </html>
+
 
 
