@@ -8,7 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="config.js"></script>
 
-  <!-- Lógica del modal de confirmación (antes de app.js para interceptar) -->
+  <!-- Modal de confirmación (si ya lo tenías, conservá tu versión) -->
   <script>
   (function(){
     function $(sel){ return document.querySelector(sel); }
@@ -18,17 +18,14 @@
       const who = document.getElementById('whoTarget');
       const yes = document.getElementById('confirmYes');
       const no  = document.getElementById('confirmNo');
-
       if(!resetBtn || !dlg) return;
 
-      // Intercepta el click antes de otros handlers
       resetBtn.addEventListener('click', function(ev){
-        ev.preventDefault();
-        ev.stopImmediatePropagation();
+        ev.preventDefault(); ev.stopImmediatePropagation();
         try {
           const teamTitle = document.getElementById('teamTitle')?.textContent || 'Área';
           const person = document.getElementById('personSelect')?.value || 'Interlocutor';
-          who.textContent = teamTitle + ' – ' + person;
+          if (who) who.textContent = teamTitle + ' – ' + person;
         } catch(_){}
         dlg.showModal();
       }, true);
@@ -77,7 +74,6 @@
         <button id="exportJsonBtn" class="is-hidden" disabled>Exportar JSON (este interlocutor)</button>
       </div>
       <div class="row">
-        <!-- Botón frecuente se mantiene cerca del formulario -->
         <button id="sendRepoBtn">Enviar TODO al repositorio</button>
       </div>
     </section>
@@ -90,7 +86,7 @@
       </div>
     </section>
 
-    <!-- Grilla de trabajo: tabla a la izquierda, radar (con acciones) a la derecha -->
+    <!-- Grilla: tabla a la izquierda, radar con acciones a la derecha -->
     <section class="workgrid">
       <section class="questions card">
         <table id="questionsTable">
@@ -98,8 +94,8 @@
             <tr>
               <th>Enunciado</th>
               <th>Ejemplo aclaratorio</th>
-              <th>KPI de referencia</th>
-              <th>Puntaje (1–5)</th>
+              <th class="col-kpi">KPI de referencia</th>
+              <th>Puntaje</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -113,7 +109,6 @@
         </div>
         <canvas id="radarChart" height="280"></canvas>
 
-        <!-- Acciones secundarias a la derecha, no flotantes -->
         <div class="actions-right">
           <button id="resetBtn" class="danger">Reiniciar puntajes</button>
           <button id="exportAllBtn">Exportar TODO (CSV consolidado)</button>
@@ -123,10 +118,10 @@
   </main>
 
   <footer>
-    <small>© TT Consulting · 2025</small>
+    <small>© Taller Interactivo · Petropack 2030</small>
   </footer>
 
-  <!-- Modal de confirmación (nativo <dialog>) -->
+  <!-- Modal de confirmación (dejalo si lo usás) -->
   <dialog id="confirmDialog" class="confirm-dialog" aria-labelledby="confirmTitle" aria-describedby="confirmDesc">
     <div class="dialog-body">
       <h3 id="confirmTitle">Reiniciar puntajes</h3>
@@ -138,9 +133,82 @@
     </div>
   </dialog>
 
+  <!-- Tu app original -->
   <script src="app.js"></script>
+
+  <!-- Mejora sin tocar app.js: ocultar KPI y transformar inputs en bolitas -->
+  <script>
+  (function(){
+    function enhanceDots() {
+      const tbody = document.querySelector('#questionsTable tbody');
+      if (!tbody) return;
+
+      // Oculta columna KPI (si app.js la generó)
+      document.querySelectorAll('.col-kpi, #questionsTable td:nth-child(3)').forEach(el => {
+        el.classList.add('hide-kpi');
+      });
+
+      // Reemplaza cada input number por bolitas (con el input oculto sincronizado)
+      tbody.querySelectorAll('tr').forEach(tr => {
+        const input = tr.querySelector('td:last-child input[type="number"]');
+        if (!input) return;
+
+        // Evita duplicar si ya fue mejorado
+        if (tr.querySelector('.dot-group')) return;
+
+        // Ocultamos el input pero lo dejamos para que app.js lo use
+        input.classList.add('score-hidden');
+
+        const current = parseInt(input.value, 10);
+        const group = document.createElement('div');
+        group.className = 'dot-group';
+        for (let v = 1; v <= 5; v++) {
+          const dot = document.createElement('span');
+          dot.className = 'dot' + (current === v ? ' is-selected' : '');
+          dot.dataset.v = String(v);
+          dot.textContent = v;
+          dot.setAttribute('role','radio');
+          dot.setAttribute('aria-checked', current === v ? 'true' : 'false');
+          dot.tabIndex = 0;
+
+          function setValue(val){
+            input.value = val;
+            // Dispara el mismo evento que usa app.js para guardar y recalcular
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            // Estado visual
+            group.querySelectorAll('.dot').forEach(d=>{
+              const on = parseInt(d.dataset.v,10) === val;
+              d.classList.toggle('is-selected', on);
+              d.setAttribute('aria-checked', on ? 'true' : 'false');
+            });
+          }
+
+          dot.addEventListener('click', ()=> setValue(v));
+          dot.addEventListener('keydown', (e)=>{
+            if(e.key==='Enter' || e.key===' '){ e.preventDefault(); setValue(v); }
+          });
+
+          group.appendChild(dot);
+        }
+
+        input.parentElement.appendChild(group);
+      });
+    }
+
+    // Ejecutar al cargar y cada vez que app.js reconstruya la tabla
+    const origBuild = window.buildTable;
+    window.buildTable = function(teamKey, person){
+      if (typeof origBuild === 'function') origBuild.apply(this, arguments);
+      enhanceDots();
+    };
+
+    // Por si la tabla ya está armada antes de este script
+    document.addEventListener('DOMContentLoaded', enhanceDots);
+  })();
+  </script>
 </body>
 </html>
+
 
 
 
