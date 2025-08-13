@@ -1,30 +1,48 @@
 let DATA=null; let chart=null;
 const $=(sel)=>document.querySelector(sel);
+
+// Tabs / wrappers
+const modeTeamBtn = $("#modeTeamBtn");
+const modePersonBtn = $("#modePersonBtn");
+const teamSelectWrapper = $("#teamSelectWrapper");
+const personSelectWrapper = $("#personSelectWrapper");
+
+// Modo equipo
 const teamSelect=$("#teamSelect"), personSelect=$("#personSelect");
+
+// Modo interlocutor
+const personGlobalSelect=$("#personGlobalSelect");
+const teamForPersonSelect=$("#teamForPersonSelect");
+
+// Comunes
 const teamTitle=$("#teamTitle"), speechText=$("#speechText");
 const tbody=$("#questionsTable tbody"), avgArea=$("#avgArea"), pctArea=$("#pctArea");
 const radarCanvas=$("#radarChart");
-const newCopyBtn=$("#newCopyBtn"), resetBtn=$("#resetBtn");
-const exportCsvBtn=$("#exportCsvBtn"), exportJsonBtn=$("#exportJsonBtn");
-const exportAllBtn=$("#exportAllBtn"), sendRepoBtn=$("#sendRepoBtn");
+const exportAllBtn=$("#exportAllBtn"), sendRepoBtn=$("#sendRepoBtn"), sendRepoBtn2=$("#sendRepoBtn2");
 
 const LS_KEY=(team,person)=>`petropack_taller_${team}_${person}`;
 
+// Utils
 function mean(nums){const a=nums.filter(n=>typeof n==='number' && !isNaN(n)); return a.length? a.reduce((x,y)=>x+y,0)/a.length : null;}
 function pctExcellence(avg){return avg==null? null : (avg/5)*100;}
-function setOptions(select, items){select.innerHTML=""; items.forEach(v=>{const o=document.createElement("option"); o.value=v; o.textContent=v; select.appendChild(o);});}
+function setOptions(select, items, {getValue=(x)=>x, getLabel=(x)=>x}={}){
+  select.innerHTML="";
+  items.forEach(v=>{const o=document.createElement("option"); o.value=getValue(v); o.textContent=getLabel(v); select.appendChild(o);});
+}
 function loadState(teamKey,person){try{const raw=localStorage.getItem(LS_KEY(teamKey,person)); return raw? JSON.parse(raw):{};}catch(e){return {};}}
 function saveState(teamKey,person,state){localStorage.setItem(LS_KEY(teamKey,person), JSON.stringify(state));}
+function prettifyTitle(s){return String(s||"").replace(/_/g,' ').replace(/\s+/g,' ').trim();}
 
+// Tabla
 function buildTable(teamKey,person){
   const team=DATA.teams[teamKey];
-  teamTitle.textContent=team.title;
-  speechText.textContent=team.speech;
+  teamTitle.textContent=prettifyTitle(team.title || teamKey);
+  speechText.textContent=team.speech || "";
   tbody.innerHTML="";
   const state=loadState(teamKey,person);
   team.questions.forEach((it,idx)=>{
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${it.q}</td><td>${it.ej}</td><td>${it.kpi}</td><td><input type="number" min="1" max="5" step="1" value="${state[idx]??""}"></td>`;
+    tr.innerHTML=`<td>${it.q}</td><td>${it.ej}</td><td class=\"col-kpi\">${it.kpi}</td><td><input type=\"number\" min=\"1\" max=\"5\" step=\"1\" value=\"${state[idx]??""}\"></td>`;
     const input=tr.querySelector("input");
     input.addEventListener("input",()=>{
       let v=parseInt(input.value,10);
@@ -47,33 +65,12 @@ function updateStatsAndChart(teamKey,person){
   const labels=team.questions.map((_,i)=>`P${i+1}`);
   const excellence=team.questions.map(()=>5);
   const dataVals=inputs.map(i=>{const v=parseInt(i.value,10); return isNaN(v)?0:v;});
-
   const data={labels, datasets:[{label:"Puntaje", data:dataVals, fill:true},{label:"Excelencia (5)", data:excellence, fill:false}]};
   const options={animation:false,responsive:true,scales:{r:{suggestedMin:0,suggestedMax:5,ticks:{stepSize:1}}},plugins:{legend:{position:"bottom"}}};
   if(chart) chart.destroy(); chart=new Chart(radarCanvas,{type:"radar",data,options});
 }
 
-function duplicateInterlocutor(teamKey){
-  const base=personSelect.value || "Interlocutor";
-  let n=2,cand=base+" (copia "+n+")";
-  const set=new Set(DATA.teams[teamKey].interlocutors);
-  while(set.has(cand)){n++; cand=base+" (copia "+n+")";}
-  DATA.teams[teamKey].interlocutors.push(cand);
-  setOptions(personSelect, DATA.teams[teamKey].interlocutors);
-  personSelect.value=cand; saveState(teamKey,cand,{}); buildTable(teamKey,cand);
-}
-
-// Export CSV (single interlocutor)
-function exportCSV(teamKey, person){
-  const team=DATA.teams[teamKey]; const state=loadState(teamKey,person);
-  let rows=[["Equipo","Interlocutor","#","Pregunta","Ejemplo","KPI","Puntaje","PromedioArea","PctExcelencia"]];
-  const vals=team.questions.map((_,i)=>state[i]); const avg=mean(vals.filter(v=>typeof v==='number')), pct=pctExcellence(avg);
-  team.questions.forEach((it,idx)=>{rows.push([team.title,person,idx+1,it.q,it.ej,it.kpi,state[idx]??"",avg??"",pct??""]);});
-  const csv=rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
-  download(csv,`diagnostico_${teamKey}_${person}.csv`,"text/csv");
-}
-
-// Export ALL (CSV across all team/person)
+// Exportación
 function exportAllCSV(){
   let rows=[["EquipoKey","Equipo","Interlocutor","#","Pregunta","Ejemplo","KPI","Puntaje","PromedioArea","PctExcelencia"]];
   for(const teamKey of Object.keys(DATA.teams)){
@@ -83,20 +80,19 @@ function exportAllCSV(){
       const vals=team.questions.map((_,i)=>state[i]);
       const avg=mean(vals.filter(v=>typeof v==='number')), pct=pctExcellence(avg);
       team.questions.forEach((it,idx)=>{
-        rows.push([teamKey,team.title,person,idx+1,it.q,it.ej,it.kpi,state[idx]??"",avg??"",pct??""]);
+        rows.push([teamKey,prettifyTitle(team.title||teamKey),person,idx+1,it.q,it.ej,it.kpi,state[idx]??"",avg??"",pct??""]);
       });
     }
   }
   const csv=rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
-  download(csv,`diagnostico_consolidado.csv`,"text/csv");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}); const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download='diagnostico_consolidado.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
-// QUICK no-CORS sender
+// Envío
 async function sendAllToRepo(){
   const url=(window.CONFIG && CONFIG.ENDPOINT_URL) ? CONFIG.ENDPOINT_URL : null;
   if(!url){ alert("Configura ENDPOINT_URL en config.js"); return; }
-
-  // payload consolidado
   const payload=[];
   for(const teamKey of Object.keys(DATA.teams)){
     const team=DATA.teams[teamKey];
@@ -106,60 +102,97 @@ async function sendAllToRepo(){
       const avg=vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
       const pct=avg==null ? null : (avg/5)*100;
       team.questions.forEach((it,idx)=>{
-        payload.push({
-          teamKey, teamTitle: team.title, person, index: idx+1,
-          question: it.q, example: it.ej, kpi: it.kpi,
-          score: state[idx] ?? null, avgArea: avg, pctArea: pct
-        });
+        payload.push({ teamKey, teamTitle: team.title, person, index: idx+1, question: it.q, example: it.ej, kpi: it.kpi, score: state[idx] ?? null, avgArea: avg, pctArea: pct });
       });
     }
   }
-
   try{
-    await fetch(url, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ records: payload, generatedAt: new Date().toISOString() })
-    });
-    alert("Enviado en modo no‑CORS. Verificá en la hoja 'Respuestas' del Google Sheet.");
-  }catch(err){
-    alert("No se pudo enviar (no‑CORS): "+err.message);
+    await fetch(url,{ method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({ records: payload, generatedAt: new Date().toISOString() }) });
+    alert("Enviado en modo no‑CORS. Verificá en la hoja 'Respuestas'.");
+  }catch(err){ alert("No se pudo enviar (no‑CORS): "+err.message); }
+}
+
+// Helpers Modo Interlocutor
+function getAllInterlocutors(){
+  const set=new Set();
+  for(const teamKey of Object.keys(DATA.teams)){
+    (DATA.teams[teamKey].interlocutors||[]).forEach(n=> set.add(n));
   }
+  return Array.from(set).sort((a,b)=> a.localeCompare(b,'es'));
+}
+function getTeamsForPerson(person){
+  const list=[];
+  for(const teamKey of Object.keys(DATA.teams)){
+    const arr=DATA.teams[teamKey].interlocutors||[];
+    if(arr.includes(person)) list.push(teamKey);
+  }
+  return list;
 }
 
-function download(text, filename, mime){
-  const blob=new Blob([text],{type:mime+";charset=utf-8"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a"); a.href=url; a.download=filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
+// Eventos
+document.addEventListener('DOMContentLoaded', ()=>{
+  // Tabs
+  modeTeamBtn.addEventListener('click',()=>{
+    modeTeamBtn.classList.add('active'); modeTeamBtn.setAttribute('aria-pressed','true');
+    modePersonBtn.classList.remove('active'); modePersonBtn.setAttribute('aria-pressed','false');
+    teamSelectWrapper.style.display='';
+    personSelectWrapper.style.display='none';
+    buildTable(teamSelect.value, personSelect.value);
+  });
+  modePersonBtn.addEventListener('click',()=>{
+    modePersonBtn.classList.add('active'); modePersonBtn.setAttribute('aria-pressed','true');
+    modeTeamBtn.classList.remove('active'); modeTeamBtn.setAttribute('aria-pressed','false');
+    teamSelectWrapper.style.display='none';
+    personSelectWrapper.style.display='';
+    const person = personGlobalSelect.value;
+    const teams = getTeamsForPerson(person);
+    setOptions(teamForPersonSelect, teams, { getValue:(k)=>k, getLabel:(k)=> prettifyTitle(DATA.teams[k].title||k)});
+    if(teams.length){ teamForPersonSelect.value=teams[0]; buildTable(teams[0], person); }
+    else { tbody.innerHTML=''; teamTitle.textContent='—'; speechText.textContent=''; avgArea.textContent='—'; pctArea.textContent='—'; if(chart) chart.destroy(); }
+  });
 
-// Events
-$("#newCopyBtn").addEventListener("click", ()=> duplicateInterlocutor(teamSelect.value));
-$("#resetBtn").addEventListener("click", ()=>{ if(confirm("Borrar puntajes guardados de este interlocutor?")){ saveState(teamSelect.value, personSelect.value, {}); buildTable(teamSelect.value, personSelect.value);} });
-$("#exportCsvBtn").addEventListener("click", ()=> exportCSV(teamSelect.value, personSelect.value));
-$("#exportJsonBtn").addEventListener("click", ()=>{
-  const state=loadState(teamSelect.value, personSelect.value);
-  download(JSON.stringify({teamKey:teamSelect.value, person:personSelect.value, scores:state},null,2),
-           `diagnostico_${teamSelect.value}_${personSelect.value}.json`,"application/json");
+  // Export / Enviar
+  exportAllBtn.addEventListener('click', exportAllCSV);
+  sendRepoBtn.addEventListener('click', sendAllToRepo);
+  sendRepoBtn2?.addEventListener('click', sendAllToRepo);
+
+  // Modo equipo
+  teamSelect.addEventListener('change', ()=>{
+    const tk=teamSelect.value;
+    setOptions(personSelect, DATA.teams[tk].interlocutors);
+    buildTable(tk, personSelect.value);
+  });
+  personSelect.addEventListener('change', ()=> buildTable(teamSelect.value, personSelect.value));
+
+  // Modo interlocutor
+  personGlobalSelect.addEventListener('change', ()=>{
+    const person = personGlobalSelect.value;
+    const teams = getTeamsForPerson(person);
+    setOptions(teamForPersonSelect, teams, { getValue:(k)=>k, getLabel:(k)=> prettifyTitle(DATA.teams[k].title||k)});
+    if(teams.length){ teamForPersonSelect.value=teams[0]; buildTable(teams[0], person); }
+    else { tbody.innerHTML=''; teamTitle.textContent='—'; speechText.textContent=''; avgArea.textContent='—'; pctArea.textContent='—'; if(chart) chart.destroy(); }
+  });
+  teamForPersonSelect.addEventListener('change', ()=> buildTable(teamForPersonSelect.value, personGlobalSelect.value));
 });
-$("#exportAllBtn").addEventListener("click", exportAllCSV);
-$("#sendRepoBtn").addEventListener("click", sendAllToRepo);
 
-$("#teamSelect").addEventListener("change", ()=>{
-  const tk=teamSelect.value;
-  setOptions(personSelect, DATA.teams[tk].interlocutors);
-  buildTable(tk, personSelect.value);
-});
-$("#personSelect").addEventListener("change", ()=> buildTable(teamSelect.value, personSelect.value));
-
+// Init
 fetch("data.json").then(r=>r.json()).then(json=>{
   DATA=json;
   const keys=Object.keys(DATA.teams);
-  setOptions(teamSelect, keys);
+
+  // Prettify labels para equipos (sin underscores), manteniendo el value como key original
+  setOptions(teamSelect, keys, { getValue:(k)=>k, getLabel:(k)=> prettifyTitle(DATA.teams[k].title||k)});
   teamSelect.value=keys[0];
   setOptions(personSelect, DATA.teams[keys[0]].interlocutors);
   buildTable(keys[0], personSelect.value);
+
+  // Interlocutores globales
+  const people = getAllInterlocutors();
+  setOptions(personGlobalSelect, people);
+  const initialTeams = getTeamsForPerson(personGlobalSelect.value);
+  setOptions(teamForPersonSelect, initialTeams, { getValue:(k)=>k, getLabel:(k)=> prettifyTitle(DATA.teams[k].title||k)});
+  if(initialTeams.length && personSelectWrapper.style.display!=='none'){
+    teamForPersonSelect.value = initialTeams[0];
+    buildTable(initialTeams[0], personGlobalSelect.value);
+  }
 });

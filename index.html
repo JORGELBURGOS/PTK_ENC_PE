@@ -23,7 +23,7 @@
           ev.preventDefault(); ev.stopImmediatePropagation();
           try {
             const teamTitle = document.getElementById('teamTitle')?.textContent || 'Área';
-            const person = document.getElementById('personSelect')?.value || 'Interlocutor';
+            const person = (document.getElementById('personSelect')?.value || document.getElementById('personGlobalSelect')?.value) || 'Interlocutor';
             if (who) who.textContent = teamTitle + ' – ' + person;
           } catch(_){}
           dlg.showModal();
@@ -32,16 +32,15 @@
         no?.addEventListener('click', function(){ dlg.close(); });
         yes?.addEventListener('click', function(){
           try {
-            if (window.saveState && window.buildTable && window.teamSelect && window.personSelect) {
-              window.saveState(window.teamSelect.value, window.personSelect.value, {});
-              window.buildTable(window.teamSelect.value, window.personSelect.value);
-            } else {
-              const team = document.getElementById('teamSelect')?.value;
-              const person = document.getElementById('personSelect')?.value;
-              if (team && person) {
-                localStorage.removeItem('petropack_taller_' + team + '_' + person);
-                location.reload();
-              }
+            if (window.saveState && window.buildTable) {
+              const teamVal = document.getElementById('teamSelectWrapper').style.display!=='none'
+                              ? document.getElementById('teamSelect').value
+                              : document.getElementById('teamForPersonSelect').value;
+              const personVal = document.getElementById('teamSelectWrapper').style.display!=='none'
+                                ? document.getElementById('personSelect').value
+                                : document.getElementById('personGlobalSelect').value;
+              window.saveState(teamVal, personVal, {});
+              window.buildTable(teamVal, personVal);
             }
           } catch(e){ console.warn(e); }
           dlg.close();
@@ -58,7 +57,14 @@
   </header>
 
   <main class="container">
-    <section class="controls card">
+    <section class="mode card">
+      <div class="mode-tabs">
+        <button id="modeTeamBtn" class="active" aria-pressed="true">Entrar por equipo</button>
+        <button id="modePersonBtn" aria-pressed="false">Entrar por interlocutor</button>
+      </div>
+    </section>
+
+    <section class="controls card" id="teamSelectWrapper">
       <div class="row">
         <label for="teamSelect">Equipo</label>
         <select id="teamSelect"></select>
@@ -74,6 +80,21 @@
       </div>
       <div class="row">
         <button id="sendRepoBtn">Enviar TODO al repositorio</button>
+      </div>
+    </section>
+
+    <section class="controls card" id="personSelectWrapper" style="display:none">
+      <div class="row">
+        <label for="personGlobalSelect">Interlocutor</label>
+        <select id="personGlobalSelect"></select>
+      </div>
+      <div class="row">
+        <label for="teamForPersonSelect">Equipo</label>
+        <select id="teamForPersonSelect"></select>
+        <small class="help">Solo se listan equipos donde participa este interlocutor.</small>
+      </div>
+      <div class="row">
+        <button id="sendRepoBtn2">Enviar TODO al repositorio</button>
       </div>
     </section>
 
