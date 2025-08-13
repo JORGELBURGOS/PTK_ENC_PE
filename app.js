@@ -91,19 +91,20 @@ function exportAllCSV(){
   download(csv,`diagnostico_consolidado.csv`,"text/csv");
 }
 
-// Send ALL to repository (webhook REST)
+// QUICK no-CORS sender
 async function sendAllToRepo(){
   const url=(window.CONFIG && CONFIG.ENDPOINT_URL) ? CONFIG.ENDPOINT_URL : null;
   if(!url){ alert("Configura ENDPOINT_URL en config.js"); return; }
-  const apiKey=(window.CONFIG && CONFIG.API_KEY) ? CONFIG.API_KEY : null;
 
+  // payload consolidado
   const payload=[];
   for(const teamKey of Object.keys(DATA.teams)){
     const team=DATA.teams[teamKey];
     for(const person of team.interlocutors){
       const state=loadState(teamKey,person);
-      const vals=team.questions.map((_,i)=>state[i]);
-      const avg=mean(vals.filter(v=>typeof v==='number')), pct=pctExcellence(avg);
+      const vals=team.questions.map((_,i)=>state[i]).filter(v=>typeof v==='number');
+      const avg=vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+      const pct=avg==null ? null : (avg/5)*100;
       team.questions.forEach((it,idx)=>{
         payload.push({
           teamKey, teamTitle: team.title, person, index: idx+1,
@@ -115,15 +116,15 @@ async function sendAllToRepo(){
   }
 
   try{
-    const res=await fetch(url,{
-      method:"POST",
-      headers: {"Content-Type":"application/json", ...(apiKey? {"Authorization":`Bearer ${apiKey}`} : {})},
+    await fetch(url, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ records: payload, generatedAt: new Date().toISOString() })
     });
-    if(!res.ok){ const t=await res.text(); throw new Error(t); }
-    alert("Datos enviados al repositorio correctamente.");
+    alert("Enviado en modo no‑CORS. Verificá en la hoja 'Respuestas' del Google Sheet.");
   }catch(err){
-    alert("Error al enviar: "+err.message);
+    alert("No se pudo enviar (no‑CORS): "+err.message);
   }
 }
 
