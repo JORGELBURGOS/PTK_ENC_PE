@@ -3,11 +3,10 @@
   --bg:#f6f7fb; --fg:#222; --primary:#0d47a1; --muted:#6b7280; --card:#fff; --border:#e5e7eb;
   --shadow:0 6px 20px rgba(13,25,66,.06);
   --danger:#c62828;
-  /* Colores semáforo */
   --dot1:#ef4444; --dot2:#f59e0b; --dot3:#eab308; --dot4:#84cc16; --dot5:#22c55e;
 }
 html,body{height:100%}
-body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;margin:0;background:var(--bg);color:var(--fg)}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;margin:0;background:var(--bg);color:#fg}
 header{background:var(--primary);color:#fff;padding:20px}
 header h1{margin:0 0 4px 0;font-size:22px}
 header p{margin:0;font-size:14px;opacity:.9}
@@ -25,33 +24,20 @@ button.ghost{background:#fff;color:var(--primary);border:1px solid #c9d0ea}
 
 .speech .scale{margin-top:8px;font-size:13px;color:#374151}
 
-/* Grilla: tabla a la izquierda, radar + acciones a la derecha */
-.workgrid{
-  display:grid; gap:16px; align-items:start;
-  grid-template-columns: 1.8fr 1fr;
-}
-@media (max-width: 980px){
-  .workgrid{grid-template-columns:1fr}
-}
-
-/* Tabla compacta */
+.workgrid{display:grid; gap:16px; align-items:start; grid-template-columns: 1.8fr 1fr;}
+@media (max-width: 980px){ .workgrid{grid-template-columns:1fr} }
 .questions table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;line-height:1.35}
 .questions th,.questions td{border-bottom:1px solid var(--border);padding:8px 8px;vertical-align:top}
 .questions th{background:#f9fafb;position:sticky;top:0;z-index:1;text-align:left;color:#111827;font-weight:700}
-/* Anchos */
 .questions th:nth-child(1){width:56%}
 .questions th:nth-child(2){width:28%}
-.questions th:nth-child(3){width:0}   /* KPI header placeholder */
+.questions th:nth-child(3){width:0}
 .questions th:nth-child(4){width:16%;text-align:center}
 .questions td:nth-child(4){text-align:center}
 
-/* Ocultar KPI solo con CSS (no rompemos app.js) */
 .hide-kpi{display:none!important}
-
-/* Input numérico oculto (lo usa app.js) */
 input.score-hidden{display:none}
 
-/* Bolitas semaforizadas 1–5 */
 .dot-group{display:flex;gap:10px;justify-content:center;align-items:center}
 .dot{width:22px;height:22px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;
      font-size:12px;font-weight:700;color:#fff;cursor:pointer;user-select:none;border:2px solid transparent;transition:transform .05s ease}
@@ -63,16 +49,11 @@ input.score-hidden{display:none}
 .dot[data-v="5"]{background:var(--dot5)}
 .dot.is-selected{box-shadow:0 0 0 2px rgba(0,0,0,.08); border-color:#fff}
 
-/* Resultados y acciones */
 .results .stats{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px}
 .results canvas{max-width:100%}
 .actions-right{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
-@media (max-width: 980px){
-  .actions-right{justify-content:stretch;flex-wrap:wrap}
-  .actions-right button{flex:1 1 auto}
-}
+@media (max-width: 980px){ .actions-right{justify-content:stretch;flex-wrap:wrap} .actions-right button{flex:1 1 auto} }
 
-/* Modal <dialog> */
 .confirm-dialog::backdrop{background:rgba(0,0,0,.35)}
 .confirm-dialog{border:none;border-radius:16px;padding:0;max-width:560px;width:92%}
 .confirm-dialog .dialog-body{padding:18px 18px 16px 18px}
@@ -81,10 +62,4 @@ input.score-hidden{display:none}
 .confirm-dialog .dialog-actions{display:flex;gap:10px;justify-content:flex-end}
 
 footer{padding:10px 16px;color:var(--muted);text-align:center}
-@media print{
-  header, .controls, footer, .confirm-dialog{display:none}
-  .card{box-shadow:none}
-}
-
-
-
+@media print{ header, .controls, footer, .confirm-dialog{display:none} .card{box-shadow:none} }
