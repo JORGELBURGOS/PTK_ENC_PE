@@ -8,7 +8,9 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="config.js"></script>
 
+  <!-- Modal logic: attach BEFORE app.js so we intercept the reset click -->
   <script>
+  // Minimal JS just for modal + safe reset using existing app.js helpers
   (function(){
     function $(sel){ return document.querySelector(sel); }
     document.addEventListener('DOMContentLoaded', function(){
@@ -18,35 +20,43 @@
       const yes = document.getElementById('confirmYes');
       const no  = document.getElementById('confirmNo');
 
-      if(resetBtn && dlg){
-        resetBtn.addEventListener('click', function(ev){
-          ev.preventDefault(); ev.stopImmediatePropagation();
-          try {
-            const teamTitle = document.getElementById('teamTitle')?.textContent || 'Área';
-            const person = document.getElementById('personSelect')?.value || 'Interlocutor';
-            if (who) who.textContent = teamTitle + ' – ' + person;
-          } catch(_){}
-          dlg.showModal();
-        }, true);
+      if(!resetBtn || !dlg) return;
 
-        no?.addEventListener('click', function(){ dlg.close(); });
-        yes?.addEventListener('click', function(){
-          try {
-            if (window.saveState && window.buildTable && window.teamSelect && window.personSelect) {
-              window.saveState(window.teamSelect.value, window.personSelect.value, {});
-              window.buildTable(window.teamSelect.value, window.personSelect.value);
-            } else {
-              const team = document.getElementById('teamSelect')?.value;
-              const person = document.getElementById('personSelect')?.value;
-              if (team && person) {
-                localStorage.removeItem('petropack_taller_' + team + '_' + person);
-                location.reload();
-              }
+      // Intercept click BEFORE app.js handlers
+      resetBtn.addEventListener('click', function(ev){
+        // Stop other listeners (like a previous confirm())
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        try {
+          const teamTitle = document.getElementById('teamTitle')?.textContent || 'Área';
+          const person = document.getElementById('personSelect')?.value || 'Interlocutor';
+          who.textContent = teamTitle + ' – ' + person;
+        } catch(_){}
+        dlg.showModal();
+      }, true);
+
+      no?.addEventListener('click', function(){
+        dlg.close();
+      });
+
+      yes?.addEventListener('click', function(){
+        try {
+          // Use global helpers from app.js if present
+          if (window.saveState && window.buildTable && window.teamSelect && window.personSelect) {
+            window.saveState(window.teamSelect.value, window.personSelect.value, {});
+            window.buildTable(window.teamSelect.value, window.personSelect.value);
+          } else {
+            // fallback: clear localStorage key format used in app.js
+            const team = document.getElementById('teamSelect')?.value;
+            const person = document.getElementById('personSelect')?.value;
+            if (team && person) {
+              localStorage.removeItem('petropack_taller_' + team + '_' + person);
+              location.reload();
             }
-          } catch(e){ console.warn(e); }
-          dlg.close();
-        });
-      }
+          }
+        } catch(e){ console.warn(e); }
+        dlg.close();
+      });
     });
   })();
   </script>
@@ -68,11 +78,14 @@
         <select id="personSelect"></select>
       </div>
       <div class="row">
+        <!-- Ocultamos los botones pedidos (se mantienen en el DOM para no romper app.js) -->
         <button id="newCopyBtn" class="is-hidden" disabled>Duplicar ejemplar para este interlocutor</button>
+        <button id="resetBtn" class="danger">Reiniciar puntajes</button>
         <button id="exportCsvBtn" class="is-hidden" disabled>Exportar CSV (este interlocutor)</button>
         <button id="exportJsonBtn" class="is-hidden" disabled>Exportar JSON (este interlocutor)</button>
       </div>
       <div class="row">
+        <button id="exportAllBtn">Exportar TODO (CSV consolidado)</button>
         <button id="sendRepoBtn">Enviar TODO al repositorio</button>
       </div>
     </section>
@@ -85,6 +98,7 @@
       </div>
     </section>
 
+    <!-- Nueva grilla: tabla compacta a la izquierda, radar a la derecha -->
     <section class="workgrid">
       <section class="questions card">
         <table id="questionsTable">
@@ -92,8 +106,8 @@
             <tr>
               <th>Enunciado</th>
               <th>Ejemplo aclaratorio</th>
-              <th class="col-kpi">KPI de referencia</th>
-              <th>Puntaje</th>
+              <th>KPI de referencia</th>
+              <th>Puntaje (1–5)</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -106,11 +120,6 @@
           <div><strong>% de excelencia del área:</strong> <span id="pctArea">—</span></div>
         </div>
         <canvas id="radarChart" height="280"></canvas>
-
-        <div class="actions-right">
-          <button id="resetBtn" class="danger">Reiniciar puntajes</button>
-          <button id="exportAllBtn">Exportar TODO (CSV consolidado)</button>
-        </div>
       </section>
     </section>
   </main>
@@ -119,10 +128,11 @@
     <small>© Taller Interactivo · Petropack 2030</small>
   </footer>
 
-  <dialog id="confirmDialog" class="confirm-dialog" aria-labelledby="confirmTitle" aria-describedby="confirmDesc">
+  <!-- Modal nativo <dialog> para confirmación -->
+  <dialog id="confirmDialog" class="confirm-dialog">
     <div class="dialog-body">
-      <h3 id="confirmTitle">Reiniciar puntajes</h3>
-      <p id="confirmDesc">¿Estás seguro de que querés reiniciar los puntajes de <strong id="whoTarget"></strong>? Esta acción no se puede deshacer.</p>
+      <h3>Reiniciar puntajes</h3>
+      <p>¿Estás seguro de que querés reiniciar los puntajes de <strong id="whoTarget"></strong>? Esta acción no se puede deshacer.</p>
       <div class="dialog-actions">
         <button id="confirmYes" class="danger">Sí, reiniciar</button>
         <button id="confirmNo" class="ghost">Cancelar</button>
@@ -131,56 +141,5 @@
   </dialog>
 
   <script src="app.js"></script>
-
-  <script>
-  (function(){
-    function enhanceDots() {
-      const tbody = document.querySelector('#questionsTable tbody');
-      if (!tbody) return;
-      document.querySelectorAll('.col-kpi, #questionsTable td:nth-child(3)').forEach(el => {
-        el.classList.add('hide-kpi');
-      });
-      tbody.querySelectorAll('tr').forEach(tr => {
-        const input = tr.querySelector('td:last-child input[type="number"]');
-        if (!input) return;
-        if (tr.querySelector('.dot-group')) return;
-        input.classList.add('score-hidden');
-        const current = parseInt(input.value, 10);
-        const group = document.createElement('div');
-        group.className = 'dot-group';
-        for (let v = 1; v <= 5; v++) {
-          const dot = document.createElement('span');
-          dot.className = 'dot' + (current === v ? ' is-selected' : '');
-          dot.dataset.v = String(v);
-          dot.textContent = v;
-          dot.setAttribute('role','radio');
-          dot.setAttribute('aria-checked', current === v ? 'true' : 'false');
-          dot.tabIndex = 0;
-          function setValue(val){
-            input.value = val;
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            group.querySelectorAll('.dot').forEach(d=>{
-              const on = parseInt(d.dataset.v,10) === val;
-              d.classList.toggle('is-selected', on);
-              d.setAttribute('aria-checked', on ? 'true' : 'false');
-            });
-          }
-          dot.addEventListener('click', ()=> setValue(v));
-          dot.addEventListener('keydown', (e)=>{
-            if(e.key==='Enter' || e.key===' '){ e.preventDefault(); setValue(v); }
-          });
-          group.appendChild(dot);
-        }
-        input.parentElement.appendChild(group);
-      });
-    }
-    const origBuild = window.buildTable;
-    window.buildTable = function(teamKey, person){
-      if (typeof origBuild === 'function') origBuild.apply(this, arguments);
-      enhanceDots();
-    };
-    document.addEventListener('DOMContentLoaded', enhanceDots);
-  })();
-  </script>
 </body>
 </html>
