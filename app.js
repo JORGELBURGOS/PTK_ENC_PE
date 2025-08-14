@@ -1,3 +1,16 @@
+
+// === Perspectivas por equipo (visible) ===
+const PERSPECTIVES = {
+  "Dirección General / Alta Gerencia": "Dirección Estratégica",
+  "Finanzas / Costos / Administración": "Sostenibilidad Económica y Gestión de Recursos",
+  "Producción / Calidad / Ingeniería / Mantenimiento": "Excelencia Operativa y Productividad",
+  "RRHH / Supervisores / Líderes de Turno": "Capital Humano y Cultura Organizacional",
+  "Comercial / Atención al Cliente / Logística": "Desarrollo de Mercado y Relación con Clientes",
+  "Medio Ambiente / Compras": "Responsabilidad Ambiental y Sostenibilidad",
+  "Fundación / RSE / Comunicación": "Impacto Social y Reputación",
+  "Planeamiento Estratégico Integrador": "Dirección y Cohesión Estratégica"
+};
+
 let DATA=null; let chart=null;
 const $=(sel)=>document.querySelector(sel);
 
@@ -34,10 +47,32 @@ function saveState(teamKey,person,state){localStorage.setItem(LS_KEY(teamKey,per
 function prettifyTitle(s){return String(s||"").replace(/_/g,' ').replace(/\s+/g,' ').trim();}
 
 // Tabla
+
+function getTeamPerspective(teamKey){
+  try{
+    const title = (DATA.teams[teamKey]?.title || teamKey).trim();
+    if(PERSPECTIVES[title]) return PERSPECTIVES[title];
+    const norm = title.replace(/\s*\/\s*/g, " / ").replace(/\s+/g," ").trim();
+    if(PERSPECTIVES[norm]) return PERSPECTIVES[norm];
+    for(const k of Object.keys(PERSPECTIVES)){
+      if(norm.toLowerCase().includes(k.toLowerCase())) return PERSPECTIVES[k];
+    }
+  }catch(e){}
+  return null;
+}
+
 function buildTable(teamKey,person){
   const team=DATA.teams[teamKey];
-  teamTitle.textContent=prettifyTitle(team.title || teamKey);
-  speechText.textContent=team.speech || "";
+  \1
+  // Renderizar Perspectiva
+  const pLine = document.getElementById('perspectiveLine');
+  if(pLine){
+    const persp = getTeamPerspective(teamKey);
+    pLine.textContent = persp ? ("Perspectiva: " + persp) : "";
+    pLine.style.display = persp ? "" : "none";
+  }
+
+speechText.textContent=team.speech || "";
   tbody.innerHTML="";
   const state=loadState(teamKey,person);
   team.questions.forEach((it,idx)=>{
