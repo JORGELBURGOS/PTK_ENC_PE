@@ -93,21 +93,49 @@ function exportAllCSV(){
 async function sendAllToRepo(){
   const url=(window.CONFIG && CONFIG.ENDPOINT_URL) ? CONFIG.ENDPOINT_URL : null;
   if(!url){ alert("Configura ENDPOINT_URL en config.js"); return; }
+
   const payload=[];
   for(const teamKey of Object.keys(DATA.teams)){
     const team=DATA.teams[teamKey];
     for(const person of team.interlocutors){
       const state=loadState(teamKey,person);
-      const vals=team.questions.map((_,i)=>state[i]).filter(v=>typeof v==='number');
-      const avg=vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
-      const pct=avg==null ? null : (avg/5)*100;
+
+      // ✔ Solo preparar registros con score válido (evita mandar vacíos)
       team.questions.forEach((it,idx)=>{
-        payload.push({ teamKey, teamTitle: team.title, person, index: idx+1, question: it.q, example: it.ej, kpi: it.kpi, score: state[idx] ?? null, avgArea: avg, pctArea: pct });
+        const sc = state[idx];
+        const hasScore = typeof sc==='number' && !isNaN(sc) && sc>=1 && sc<=5;
+        if (!hasScore) return; // << NO mandamos esta fila => el backend NO la toca
+
+        // Armamos el registro mínimo necesario
+        const rec = {
+          teamKey,
+          teamTitle: team.title,
+          person,
+          index: idx+1,
+          question: it.q,
+          example: it.ej,
+          kpi: it.kpi,
+          score: sc   // solo cuando hay score real
+          // OJO: NO mandamos avgArea ni pctArea para no pisarlos
+        };
+
+        payload.push(rec);
       });
     }
   }
+
+  if (payload.length === 0){
+    alert("No hay puntajes para enviar todavía.");
+    return;
+  }
+
   try{
-    await fetch(url,{ method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({ records: payload, generatedAt: new Date().toISOString() }) });
+    await fetch(url,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body: JSON.stringify({ records: payload, generatedAt: new Date().toISOString() })
+    });
     alert("Enviado en modo no-CORS. Verificá en la hoja 'Respuestas'.");
   }catch(err){ alert("No se pudo enviar (no-CORS): "+err.message); }
 }
@@ -197,3 +225,4 @@ fetch("data.json").then(r=>r.json()).then(json=>{
   }
 
 });
+
