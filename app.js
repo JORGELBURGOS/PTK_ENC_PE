@@ -33,6 +33,70 @@ function loadState(teamKey,person){try{const raw=localStorage.getItem(LS_KEY(tea
 function saveState(teamKey,person,state){localStorage.setItem(LS_KEY(teamKey,person), JSON.stringify(state));}
 function prettifyTitle(s){return String(s||"").replace(/_/g,' ').replace(/\s+/g,' ').trim();}
 
+/* ===========================
+   HIDRATACIÓN DESDE LA HOJA
+   =========================== */
+
+// Lee del Web App (Apps Script) las filas existentes para teamKey+person
+async function fetchSheetScores(teamKey, person){
+  const base = (window.CONFIG && CONFIG.ENDPOINT_URL) ? CONFIG.ENDPOINT_URL : null;
+  if(!base) throw new Error("Configura ENDPOINT_URL en config.js");
+  const url = `${base}?teamKey=${encodeURIComponent(teamKey)}&person=${encodeURIComponent(person)}`;
+  const res = await fetch(url);          // debe devolver JSON CORS-legible
+  if (!res.ok) throw new Error(`GET ${res.status}`);
+  const json = await res.json();
+  return Array.isArray(json) ? json : (json.records || []);
+}
+
+// Aplica los scores (index 1..N) al localStorage y a la UI actual
+async function hydrateFromSheet(teamKey, person){
+  try{
+    const rows = await fetchSheetScores(teamKey, person);
+    if (!rows || !rows.length) return;
+
+    // Verifica que seguimos en la misma selección
+    const currentTeam = teamSelectWrapper.style.display!== 'none' ? teamSelect.value : teamForPersonSelect.value;
+    const currentPerson = teamSelectWrapper.style.display!== 'none' ? personSelect.value : personGlobalSelect.value;
+    if (currentTeam !== teamKey || currentPerson !== person) return;
+
+    // Actualiza localStorage
+    const state = loadState(teamKey, person);
+    rows.forEach(r=>{
+      const idx = parseInt(r.index,10) - 1;
+      const sc = Number(r.score);
+      if (Number.isInteger(idx) && idx>=0 && sc>=1 && sc<=5) {
+        state[idx] = sc;
+      }
+    });
+    saveState(teamKey, person, state);
+
+    // Refresca los inputs visibles, bolitas y radar SIN reconstruir la tabla
+    [...tbody.querySelectorAll('tr')].forEach((tr, i)=>{
+      const input = tr.querySelector('td:last-child input[type="number"]');
+      if(!input) return;
+      const sc = state[i];
+      if (typeof sc==='number' && !isNaN(sc) && sc>=1 && sc<=5) {
+        input.value = sc;
+        // dispara lógica de guardado y gráfico
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        // sincroniza visual de bolitas
+        const group = input.parentElement.querySelector('.dot-group');
+        if (group) {
+          group.querySelectorAll('.dot').forEach(d=>{
+            const on = parseInt(d.dataset.v,10) === sc;
+            d.classList.toggle('is-selected', on);
+            d.setAttribute('aria-checked', on ? 'true' : 'false');
+          });
+        }
+      }
+    });
+    // Si por algún motivo no hubo 'input', asegura el recálculo
+    updateStatsAndChart(teamKey, person);
+  }catch(err){
+    console.warn('No se pudo leer respuestas desde la hoja:', err);
+  }
+}
+
 // Tabla
 function buildTable(teamKey,person){
   const team=DATA.teams[teamKey];
@@ -174,6 +238,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     teamSelectWrapper.style.display='';
     personSelectWrapper.style.display='none';
     buildTable(teamSelect.value, personSelect.value);
+    hydrateFromSheet(teamSelect.value, personSelect.value);
   });
   modePersonBtn.addEventListener('click',()=>{
     modePersonBtn.classList.add('active'); modePersonBtn.setAttribute('aria-pressed','true');
@@ -183,7 +248,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const person = personGlobalSelect.value;
     const teams = getTeamsForPerson(person);
     setOptions(teamForPersonSelect, teams, { getValue:(k)=>k, getLabel:(k)=> prettifyTitle(DATA.teams[k].title||k)});
-    if(teams.length){ teamForPersonSelect.value=teams[0]; buildTable(teams[0], person); }
+    if(teams.length){ teamForPersonSelect.value=teams[0]; buildTable(teams[0], person); hydrateFromSheet(teams[0], person); }
     else { tbody.innerHTML=''; teamTitle.textContent='—'; speechText.textContent=''; avgArea.textContent='—'; pctArea.textContent='—'; if(chart) chart.destroy(); }
   });
 
@@ -197,18 +262,25 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const tk=teamSelect.value;
     setOptions(personSelect, DATA.teams[tk].interlocutors);
     buildTable(tk, personSelect.value);
+    hydrateFromSheet(tk, personSelect.value);
   });
-  personSelect.addEventListener('change', ()=> buildTable(teamSelect.value, personSelect.value));
+  personSelect.addEventListener('change', ()=>{
+    buildTable(teamSelect.value, personSelect.value);
+    hydrateFromSheet(teamSelect.value, personSelect.value);
+  });
 
   // Modo interlocutor
   personGlobalSelect.addEventListener('change', ()=>{
     const person = personGlobalSelect.value;
     const teams = getTeamsForPerson(person);
     setOptions(teamForPersonSelect, teams, { getValue:(k)=>k, getLabel:(k)=> prettifyTitle(DATA.teams[k].title||k)});
-    if(teams.length){ teamForPersonSelect.value=teams[0]; buildTable(teams[0], person); }
+    if(teams.length){ teamForPersonSelect.value=teams[0]; buildTable(teams[0], person); hydrateFromSheet(teams[0], person); }
     else { tbody.innerHTML=''; teamTitle.textContent='—'; speechText.textContent=''; avgArea.textContent='—'; pctArea.textContent='—'; if(chart) chart.destroy(); }
   });
-  teamForPersonSelect.addEventListener('change', ()=> buildTable(teamForPersonSelect.value, personGlobalSelect.value));
+  teamForPersonSelect.addEventListener('change', ()=>{
+    buildTable(teamForPersonSelect.value, personGlobalSelect.value);
+    hydrateFromSheet(teamForPersonSelect.value, personGlobalSelect.value);
+  });
 });
 
 // Init
@@ -221,6 +293,7 @@ fetch("data.json").then(r=>r.json()).then(json=>{
   teamSelect.value=keys[0];
   setOptions(personSelect, DATA.teams[keys[0]].interlocutors);
   buildTable(keys[0], personSelect.value);
+  hydrateFromSheet(keys[0], personSelect.value); // hidrata al inicio
 
   // Interlocutores globales
   const people = getAllInterlocutors();
@@ -230,8 +303,7 @@ fetch("data.json").then(r=>r.json()).then(json=>{
   if(initialTeams.length && personSelectWrapper.style.display!=='none'){
     teamForPersonSelect.value = initialTeams[0];
     buildTable(initialTeams[0], personGlobalSelect.value);
+    hydrateFromSheet(initialTeams[0], personGlobalSelect.value);
   }
-
 });
-
 
