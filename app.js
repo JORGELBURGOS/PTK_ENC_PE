@@ -93,23 +93,58 @@ function exportAllCSV(){
 async function sendAllToRepo(){
   const url=(window.CONFIG && CONFIG.ENDPOINT_URL) ? CONFIG.ENDPOINT_URL : null;
   if(!url){ alert("Configura ENDPOINT_URL en config.js"); return; }
+
   const payload=[];
   for(const teamKey of Object.keys(DATA.teams)){
     const team=DATA.teams[teamKey];
     for(const person of team.interlocutors){
       const state=loadState(teamKey,person);
-      const vals=team.questions.map((_,i)=>state[i]).filter(v=>typeof v==='number');
-      const avg=vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
-      const pct=avg==null ? null : (avg/5)*100;
+
+      // calcular promedio y % solo si hay puntajes válidos
+      const numericScores = team.questions
+        .map((_,i)=>state[i])
+        .filter(v=>typeof v==='number' && !isNaN(v));
+      const avg = numericScores.length ? numericScores.reduce((a,b)=>a+b,0)/numericScores.length : null;
+      const pct = avg==null ? null : (avg/5)*100;
+
       team.questions.forEach((it,idx)=>{
-        payload.push({ teamKey, teamTitle: team.title, person, index: idx+1, question: it.q, example: it.ej, kpi: it.kpi, score: state[idx] ?? null, avgArea: avg, pctArea: pct });
+        const score = state[idx];
+        const rec = {
+          teamKey,
+          teamTitle: team.title,
+          person,
+          index: idx+1,
+          question: it.q,
+          example: it.ej,
+          kpi: it.kpi
+        };
+
+        // 👉 CAMBIO MINIMO: solo incluir campos protegidos si TIENEN valor
+        if (typeof score==='number' && !isNaN(score) && score>=1 && score<=5) {
+          rec.score = score;
+        }
+        if (avg!==null && !isNaN(avg)) rec.avgArea = avg;
+        if (pct!==null && !isNaN(pct)) rec.pctArea = pct;
+
+        // Hint opcional para el backend (no interfiere si lo ignora)
+        rec.__mergeStrategy = 'onlyFillEmpty';
+
+        payload.push(rec);
       });
     }
   }
+
   try{
-    await fetch(url,{ method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({ records: payload, generatedAt: new Date().toISOString() }) });
+    await fetch(url,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body: JSON.stringify({ records: payload, generatedAt: new Date().toISOString() })
+    });
     alert("Enviado en modo no-CORS. Verificá en la hoja 'Respuestas'.");
-  }catch(err){ alert("No se pudo enviar (no-CORS): "+err.message); }
+  }catch(err){
+    alert("No se pudo enviar (no-CORS): "+err.message);
+  }
 }
 
 // Helpers Modo Interlocutor
@@ -197,4 +232,6 @@ fetch("data.json").then(r=>r.json()).then(json=>{
   }
 
 });
+
+
 
