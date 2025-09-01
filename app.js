@@ -89,7 +89,7 @@ function exportAllCSV(){
   const a=document.createElement("a"); a.href=url; a.download='diagnostico_consolidado.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
-// Envío
+// Envío (solo filas con score válido; incluye avgArea/pctArea si existen)
 async function sendAllToRepo(){
   const url=(window.CONFIG && CONFIG.ENDPOINT_URL) ? CONFIG.ENDPOINT_URL : null;
   if(!url){ alert("Configura ENDPOINT_URL en config.js"); return; }
@@ -100,13 +100,18 @@ async function sendAllToRepo(){
     for(const person of team.interlocutors){
       const state=loadState(teamKey,person);
 
-      // ✔ Solo preparar registros con score válido (evita mandar vacíos)
+      // promedio y % solo con puntajes válidos de ese interlocutor
+      const numericScores = team.questions
+        .map((_,i)=>state[i])
+        .filter(v=>typeof v==='number' && !isNaN(v) && v>=1 && v<=5);
+      const avg = numericScores.length ? (numericScores.reduce((a,b)=>a+b,0)/numericScores.length) : null;
+      const pct = avg==null ? null : (avg/5)*100;
+
       team.questions.forEach((it,idx)=>{
         const sc = state[idx];
         const hasScore = typeof sc==='number' && !isNaN(sc) && sc>=1 && sc<=5;
-        if (!hasScore) return; // << NO mandamos esta fila => el backend NO la toca
+        if (!hasScore) return; // ⛔ no mandamos filas sin score ⇒ el backend no toca esas filas
 
-        // Armamos el registro mínimo necesario
         const rec = {
           teamKey,
           teamTitle: team.title,
@@ -115,9 +120,12 @@ async function sendAllToRepo(){
           question: it.q,
           example: it.ej,
           kpi: it.kpi,
-          score: sc   // solo cuando hay score real
-          // OJO: NO mandamos avgArea ni pctArea para no pisarlos
+          score: sc
         };
+
+        // ✅ incluir promedios si existen (sin mandar nulls)
+        if (avg !== null && !isNaN(avg)) rec.avgArea = avg;
+        if (pct !== null && !isNaN(pct)) rec.pctArea = pct;
 
         payload.push(rec);
       });
@@ -225,4 +233,3 @@ fetch("data.json").then(r=>r.json()).then(json=>{
   }
 
 });
-
