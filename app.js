@@ -1,237 +1,141 @@
-let DATA=null; let chart=null;
-const $=(sel)=>document.querySelector(sel);
+/*******************************************************
+ * WebApp Petropack – Merge NO Destructivo en "Respuestas"
+ * SOLO completa score / avgArea / pctArea si la celda está vacía.
+ * Preserva timestamp si ya existe (si no hay, lo establece al crear).
+ *******************************************************/
+const SPREADSHEET_ID = '1gdjNTLBojiW19-T2yREqdCiZ0peN3IhvdsZO3XjI7MA';
+const SHEET_NAME     = 'Respuestas';
 
-// Tabs / wrappers
-const modeTeamBtn = $("#modeTeamBtn");
-const modePersonBtn = $("#modePersonBtn");
-const teamSelectWrapper = $("#teamSelectWrapper");
-const personSelectWrapper = $("#personSelectWrapper");
+// Clave para ubicar filas (coincide con tu app.js)
+const KEY_FIELDS = ['teamKey','person','index'];
 
-// Modo equipo
-const teamSelect=$("#teamSelect"), personSelect=$("#personSelect");
+// Columnas protegidas: si ya tienen valor en la hoja, NO se sobreescriben
+const NON_DESTRUCTIVE = new Set(['score','avgArea','pctArea']);
 
-// Modo interlocutor
-const personGlobalSelect=$("#personGlobalSelect");
-const teamForPersonSelect=$("#teamForPersonSelect");
-
-// Comunes
-const teamTitle=$("#teamTitle"), speechText=$("#speechText");
-const tbody=$("#questionsTable tbody"), avgArea=$("#avgArea"), pctArea=$("#pctArea");
-const radarCanvas=$("#radarChart");
-const exportAllBtn=$("#exportAllBtn"), sendRepoBtn=$("#sendRepoBtn"), sendRepoBtn2=$("#sendRepoBtn2");
-
-const LS_KEY=(team,person)=>`petropack_taller_${team}_${person}`;
-
-// Utils
-function mean(nums){const a=nums.filter(n=>typeof n==='number' && !isNaN(n)); return a.length? a.reduce((x,y)=>x+y,0)/a.length : null;}
-function pctExcellence(avg){return avg==null? null : (avg/5)*100;}
-function setOptions(select, items, {getValue=(x)=>x, getLabel=(x)=>x}={}){
-  select.innerHTML="";
-  items.forEach(v=>{const o=document.createElement("option"); o.value=getValue(v); o.textContent=getLabel(v); select.appendChild(o);});
+/* ============== Utilidades ============== */
+function openSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh = ss.getSheetByName(SHEET_NAME);
+  if (!sh) throw new Error('No existe la hoja "Respuestas"');
+  return sh;
 }
-function loadState(teamKey,person){try{const raw=localStorage.getItem(LS_KEY(teamKey,person)); return raw? JSON.parse(raw):{};}catch(e){return {};}}
-function saveState(teamKey,person,state){localStorage.setItem(LS_KEY(teamKey,person), JSON.stringify(state));}
-function prettifyTitle(s){return String(s||"").replace(/_/g,' ').replace(/\s+/g,' ').trim();}
-
-// Tabla
-function buildTable(teamKey,person){
-  const team=DATA.teams[teamKey];
-  teamTitle.textContent=prettifyTitle(team.title || teamKey);
-  speechText.textContent=team.speech || "";
-  tbody.innerHTML="";
-  const state=loadState(teamKey,person);
-  team.questions.forEach((it,idx)=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${it.q}</td><td>${it.ej}</td><td class=\"col-kpi\">${it.kpi}</td><td><input type=\"number\" min=\"1\" max=\"5\" step=\"1\" value=\"${state[idx]??""}\"></td>`;
-    const input=tr.querySelector("input");
-    input.addEventListener("input",()=>{
-      let v=parseInt(input.value,10);
-      if(isNaN(v)||v<1||v>5){input.value=""; v=undefined;}
-      const s=loadState(teamKey,person); s[idx]=v; saveState(teamKey,person,s); updateStatsAndChart(teamKey,person);
-    });
-    tbody.appendChild(tr);
+function getHeaders_(sh) {
+  const lastCol = sh.getLastColumn();
+  if (!lastCol) throw new Error('La hoja no tiene encabezados');
+  return sh.getRange(1,1,1,lastCol).getValues()[0].map(h => String(h).trim());
+}
+function idxMap_(headers) {
+  const m={}; headers.forEach((h,i)=>m[h]=i); return m;
+}
+function hasValue_(v){
+  if (v===null || v===undefined) return false;
+  if (typeof v==='number') return !isNaN(v);
+  return String(v).trim() !== '';
+}
+function buildKey_(obj){
+  return KEY_FIELDS.map(k => String(obj[k] ?? '').trim()).join('||');
+}
+function buildKeyIndex_(sh, headers){
+  const lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  const map = new Map(); if (lastRow < 2) return map;
+  const m = idxMap_(headers);
+  const keyIdxs = KEY_FIELDS.map(k => {
+    if (!(k in m)) throw new Error(`Falta columna clave "${k}" en encabezados`);
+    return m[k];
   });
-  updateStatsAndChart(teamKey,person);
+  const data = sh.getRange(2,1,lastRow-1,lastCol).getValues();
+  data.forEach((row, i)=>{
+    const key = keyIdxs.map(ix => String(row[ix] ?? '').trim()).join('||');
+    if (key) map.set(key, i+2);
+  });
+  return map;
 }
 
-function updateStatsAndChart(teamKey,person){
-  const team=DATA.teams[teamKey];
-  const inputs=[...tbody.querySelectorAll("input")];
-  const values=inputs.map(i=>parseInt(i.value,10)).filter(v=>!isNaN(v));
-  const avg=mean(values), pct=pctExcellence(avg);
-  avgArea.textContent=avg? avg.toFixed(2):"—";
-  pctArea.textContent=pct? (pct.toFixed(1)+"%"):"—";
+/* ============== Upsert NO DESTRUCTIVO ============== */
+function upsertRecords_(records){
+  const lock = LockService.getDocumentLock();
+  lock.tryLock(30000);
+  try {
+    const sh = openSheet_();
+    const headers = getHeaders_(sh);
+    const m = idxMap_(headers);
+    const lastCol = headers.length;
+    const keyToRow = buildKeyIndex_(sh, headers);
 
-  const labels=team.questions.map((_,i)=>`P${i+1}`);
-  const excellence=team.questions.map(()=>5);
-  const dataVals=inputs.map(i=>{const v=parseInt(i.value,10); return isNaN(v)?0:v;});
-  const data={labels, datasets:[{label:"Puntaje", data:dataVals, fill:true},{label:"Excelencia (5)", data:excellence, fill:false}]};
-  const options={animation:false,responsive:true,scales:{r:{suggestedMin:0,suggestedMax:5,ticks:{stepSize:1}}},plugins:{legend:{position:"bottom"}}};
-  if(chart) chart.destroy(); chart=new Chart(radarCanvas,{type:"radar",data,options});
-}
+    // Validar columnas clave
+    KEY_FIELDS.forEach(k => { if (!(k in m)) throw new Error(`Falta columna ${k}`); });
 
-// Exportación
-function exportAllCSV(){
-  let rows=[["EquipoKey","Equipo","Interlocutor","#","Pregunta","Ejemplo","KPI","Puntaje","PromedioArea","PctExcelencia"]];
-  for(const teamKey of Object.keys(DATA.teams)){
-    const team=DATA.teams[teamKey];
-    for(const person of team.interlocutors){
-      const state=loadState(teamKey,person);
-      const vals=team.questions.map((_,i)=>state[i]);
-      const avg=mean(vals.filter(v=>typeof v==='number')), pct=pctExcellence(avg);
-      team.questions.forEach((it,idx)=>{
-        rows.push([teamKey,prettifyTitle(team.title||teamKey),person,idx+1,it.q,it.ej,it.kpi,state[idx]??"",avg??"",pct??""]);
-      });
+    for (const rec of records){
+      const key = buildKey_(rec);
+      if (!key || KEY_FIELDS.some(k => !hasValue_(rec[k]))) continue;
+
+      const rowNum = keyToRow.get(key);
+
+      if (!rowNum){
+        // No existe: APPEND. Las protegidas quedan como vengan; si no vienen, quedan vacías.
+        const newRow = headers.map(h=>{
+          if (h === 'timestamp') {
+            // si viene timestamp lo usamos, si no, poner ahora
+            return hasValue_(rec.timestamp) ? rec.timestamp : new Date();
+          }
+          return hasValue_(rec[h]) ? rec[h] : '';
+        });
+        sh.appendRow(newRow);
+        keyToRow.set(key, sh.getLastRow());
+
+      } else {
+        // Existe: MERGE NO DESTRUCTIVO en protegidas; resto normal
+        const range = sh.getRange(rowNum,1,1,lastCol);
+        const cur = range.getValues()[0];
+
+        const merged = headers.map((h,i)=>{
+          const incomingDefined = Object.prototype.hasOwnProperty.call(rec, h);
+          const incoming = incomingDefined ? rec[h] : undefined;
+          const current  = cur[i];
+
+          if (NON_DESTRUCTIVE.has(h)) {
+            // Si YA hay valor en la hoja, conservar SIEMPRE
+            if (hasValue_(current)) return current;
+            // Si está vacía, escribir solo si viene algo
+            return incomingDefined && hasValue_(incoming) ? incoming : current;
+          }
+
+          if (h === 'timestamp') {
+            // Preservar timestamp si ya existe
+            if (hasValue_(current)) return current;
+            return incomingDefined && hasValue_(incoming) ? incoming : new Date();
+          }
+
+          // Resto: si viene dato, actualizar; si no, dejar lo que hay
+          return incomingDefined ? incoming : current;
+        });
+
+        range.setValues([merged]);
+      }
     }
+    return {ok:true};
+  } finally {
+    lock.releaseLock();
   }
-  const csv=rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
-  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}); const url=URL.createObjectURL(blob);
-  const a=document.createElement("a"); a.href=url; a.download='diagnostico_consolidado.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
-// Envío
-async function sendAllToRepo(){
-  const url=(window.CONFIG && CONFIG.ENDPOINT_URL) ? CONFIG.ENDPOINT_URL : null;
-  if(!url){ alert("Configura ENDPOINT_URL en config.js"); return; }
-
-  const payload=[];
-  for(const teamKey of Object.keys(DATA.teams)){
-    const team=DATA.teams[teamKey];
-    for(const person of team.interlocutors){
-      const state=loadState(teamKey,person);
-
-      // calcular promedio y % solo si hay puntajes válidos
-      const numericScores = team.questions
-        .map((_,i)=>state[i])
-        .filter(v=>typeof v==='number' && !isNaN(v));
-      const avg = numericScores.length ? numericScores.reduce((a,b)=>a+b,0)/numericScores.length : null;
-      const pct = avg==null ? null : (avg/5)*100;
-
-      team.questions.forEach((it,idx)=>{
-        const score = state[idx];
-        const rec = {
-          teamKey,
-          teamTitle: team.title,
-          person,
-          index: idx+1,
-          question: it.q,
-          example: it.ej,
-          kpi: it.kpi
-        };
-
-        // 👉 CAMBIO MINIMO: solo incluir campos protegidos si TIENEN valor
-        if (typeof score==='number' && !isNaN(score) && score>=1 && score<=5) {
-          rec.score = score;
-        }
-        if (avg!==null && !isNaN(avg)) rec.avgArea = avg;
-        if (pct!==null && !isNaN(pct)) rec.pctArea = pct;
-
-        // Hint opcional para el backend (no interfiere si lo ignora)
-        rec.__mergeStrategy = 'onlyFillEmpty';
-
-        payload.push(rec);
-      });
-    }
-  }
-
+/* ============== HTTP Handlers ============== */
+function doPost(e){
   try{
-    await fetch(url,{
-      method:"POST",
-      mode:"no-cors",
-      headers:{"Content-Type":"text/plain;charset=utf-8"},
-      body: JSON.stringify({ records: payload, generatedAt: new Date().toISOString() })
-    });
-    alert("Enviado en modo no-CORS. Verificá en la hoja 'Respuestas'.");
-  }catch(err){
-    alert("No se pudo enviar (no-CORS): "+err.message);
+    const raw = e.postData && e.postData.contents ? e.postData.contents : '{}';
+    const payload = JSON.parse(raw);
+    const records = Array.isArray(payload.records) ? payload.records : [];
+    if (!records.length) {
+      return ContentService.createTextOutput(JSON.stringify({ok:false,error:'Sin records'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    const res = upsertRecords_(records);
+    return ContentService.createTextOutput(JSON.stringify(res))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err){
+    return ContentService.createTextOutput(JSON.stringify({ok:false,error:String(err)}))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
-
-// Helpers Modo Interlocutor
-function getAllInterlocutors(){
-  const set=new Set();
-  for(const teamKey of Object.keys(DATA.teams)){
-    (DATA.teams[teamKey].interlocutors||[]).forEach(n=> set.add(n));
-  }
-  return Array.from(set).sort((a,b)=> a.localeCompare(b,'es'));
-}
-function getTeamsForPerson(person){
-  const list=[];
-  for(const teamKey of Object.keys(DATA.teams)){
-    const arr=DATA.teams[teamKey].interlocutors||[];
-    if(arr.includes(person)) list.push(teamKey);
-  }
-  return list;
-}
-
-// Eventos
-document.addEventListener('DOMContentLoaded', ()=>{
-  // Tabs
-  modeTeamBtn.addEventListener('click',()=>{
-    modeTeamBtn.classList.add('active'); modeTeamBtn.setAttribute('aria-pressed','true');
-    modePersonBtn.classList.remove('active'); modePersonBtn.setAttribute('aria-pressed','false');
-    teamSelectWrapper.style.display='';
-    personSelectWrapper.style.display='none';
-    buildTable(teamSelect.value, personSelect.value);
-  });
-  modePersonBtn.addEventListener('click',()=>{
-    modePersonBtn.classList.add('active'); modePersonBtn.setAttribute('aria-pressed','true');
-    modeTeamBtn.classList.remove('active'); modeTeamBtn.setAttribute('aria-pressed','false');
-    teamSelectWrapper.style.display='none';
-    personSelectWrapper.style.display='';
-    const person = personGlobalSelect.value;
-    const teams = getTeamsForPerson(person);
-    setOptions(teamForPersonSelect, teams, { getValue:(k)=>k, getLabel:(k)=> prettifyTitle(DATA.teams[k].title||k)});
-    if(teams.length){ teamForPersonSelect.value=teams[0]; buildTable(teams[0], person); }
-    else { tbody.innerHTML=''; teamTitle.textContent='—'; speechText.textContent=''; avgArea.textContent='—'; pctArea.textContent='—'; if(chart) chart.destroy(); }
-  });
-
-  // Export / Enviar
-  exportAllBtn.addEventListener('click', exportAllCSV);
-  sendRepoBtn.addEventListener('click', sendAllToRepo);
-  sendRepoBtn2?.addEventListener('click', sendAllToRepo);
-
-  // Modo equipo
-  teamSelect.addEventListener('change', ()=>{
-    const tk=teamSelect.value;
-    setOptions(personSelect, DATA.teams[tk].interlocutors);
-    buildTable(tk, personSelect.value);
-  });
-  personSelect.addEventListener('change', ()=> buildTable(teamSelect.value, personSelect.value));
-
-  // Modo interlocutor
-  personGlobalSelect.addEventListener('change', ()=>{
-    const person = personGlobalSelect.value;
-    const teams = getTeamsForPerson(person);
-    setOptions(teamForPersonSelect, teams, { getValue:(k)=>k, getLabel:(k)=> prettifyTitle(DATA.teams[k].title||k)});
-    if(teams.length){ teamForPersonSelect.value=teams[0]; buildTable(teams[0], person); }
-    else { tbody.innerHTML=''; teamTitle.textContent='—'; speechText.textContent=''; avgArea.textContent='—'; pctArea.textContent='—'; if(chart) chart.destroy(); }
-  });
-  teamForPersonSelect.addEventListener('change', ()=> buildTable(teamForPersonSelect.value, personGlobalSelect.value));
-});
-
-// Init
-fetch("data.json").then(r=>r.json()).then(json=>{
-  DATA=json;
-  const keys=Object.keys(DATA.teams);
-
-  // Prettify labels para equipos (sin underscores), manteniendo el value como key original
-  setOptions(teamSelect, keys, { getValue:(k)=>k, getLabel:(k)=> prettifyTitle(DATA.teams[k].title||k)});
-  teamSelect.value=keys[0];
-  setOptions(personSelect, DATA.teams[keys[0]].interlocutors);
-  buildTable(keys[0], personSelect.value);
-
-  // Interlocutores globales
-  const people = getAllInterlocutors();
-  setOptions(personGlobalSelect, people);
-  const initialTeams = getTeamsForPerson(personGlobalSelect.value);
-  setOptions(teamForPersonSelect, initialTeams, { getValue:(k)=>k, getLabel:(k)=> prettifyTitle(DATA.teams[k].title||k)});
-  if(initialTeams.length && personSelectWrapper.style.display!=='none'){
-    teamForPersonSelect.value = initialTeams[0];
-    buildTable(initialTeams[0], personGlobalSelect.value);
-  }
-
-});
-
-
+function doGet(){ return ContentService.createTextOutput('OK'); }
 
