@@ -36,12 +36,27 @@
           "q": "¿Revisamos y actualizamos la estrategia según contexto?",
           "ej": "Ajustes por cambios de mercado",
           "kpi": "Frecuencia de revisión"
+        },
+        {
+          "q": "¿Priorizamos proyectos de IT según su impacto en servicio y eficiencia?",
+          "ej": "Evaluamos proyectos por mejora en tiempos de entrega y satisfacción",
+          "kpi": "ROI de proyectos de IT y Tasa de finalización de proyectos prioritarios (%)"
+        },
+        {
+          "q": "¿Optimizamos el uso de recursos y materiales en producción?",
+          "ej": "Calculamos mezcla ideal de materiales para minimizar desperdicios",
+          "kpi": "Tasa de utilización de materiales (%) y Porcentaje de merma/desperdicio (%)"
+        },
+        {
+          "q": "¿Medimos la rentabilidad de cada pedido considerando costos y márgenes?",
+          "ej": "Asignamos gastos directos e indirectos a cada orden automáticamente",
+          "kpi": "Margen bruto por pedido (%) y Rentabilidad por tipo de producto/cliente"
         }
       ]
     },
     "Finanzas_Costos_Administracion": {
       "title": "Finanzas / Costos / Administración",
-      "speech": "Objetivo: dar sustento financiero a la estrategia y anticipar desvíos. Integrar indicadores financieros y no financieros.",
+      "speech": "Objetivo: dar sustento financiero a la estrategia y anticipar desvíos. Integrar indicadores financieros y non financieros.",
       "interlocutors": [
         "Raúl Reula",
         "Oscar Varisco",
@@ -190,6 +205,36 @@
           "q": "¿Comunicación proactiva con el cliente?",
           "ej": "Aviso anticipado de demoras",
           "kpi": "% comunicaciones proactivas"
+        },
+        {
+          "q": "¿Nuestro sistema integra pedidos, producción y entregas en tiempo real?",
+          "ej": "El sistema actualiza automáticamente planes de producción al recibir pedidos",
+          "kpi": "Tiempo de actualización del sistema (segundos)"
+        },
+        {
+          "q": "¿Tenemos trazabilidad completa desde el pedido hasta la entrega?",
+          "ej": "Seguimiento de cada etapa del proceso con códigos únicos",
+          "kpi": "Porcentaje de órdenes con trazabilidad completa (%)"
+        },
+        {
+          "q": "¿Mantenemos comunicación constante con clientes durante su pedido?",
+          "ej": "Notificaciones en hitos clave del proceso",
+          "kpi": "Frecuencia de comunicación y Satisfacción del cliente (escala 1-5)"
+        },
+        {
+          "q": "¿Ajustamos la capacidad de producción según demanda específica?",
+          "ej": "Líneas de producción modulares para cambios rápidos",
+          "kpi": "Tiempo de cambio entre configuraciones (minutos) y Capacidad ociosa (%)"
+        },
+        {
+          "q": "¿Planificamos órdenes de forma integrada entre áreas?",
+          "ej": "Reuniones conjuntas para analizar materiales y capacidad",
+          "kpi": "Eficiencia global de equipos (OEE) y Tasa de utilización de recursos (%)"
+        },
+        {
+          "q": "¿Monitoreamos tiempos de ciclo y cumplimiento de plazos?",
+          "ej": "Sistema que mide tiempo por etapa y alerta desviaciones",
+          "kpi": "Tiempo de ciclo promedio (días) y Porcentaje de cumplimiento de plazos (%)"
         }
       ]
     },
@@ -226,6 +271,11 @@
           "q": "¿Reducimos residuos en toda la cadena?",
           "ej": "Programas de reciclaje",
           "kpi": "% residuos reciclados"
+        },
+        {
+          "q": "¿Analizamos tendencias de pedidos para anticipar necesidades?",
+          "ej": "Modelo predictivo con datos históricos y estacionalidad",
+          "kpi": "Precisión de pronóstico de demanda (%) y Nivel de stock óptimo (días)"
         }
       ]
     },
@@ -303,6 +353,31 @@
           "q": "¿Sistema de revisión y mejora continua?",
           "ej": "Comité estratégico trimestral",
           "kpi": "# reuniones estratégicas/año"
+        },
+        {
+          "q": "¿Contamos con mecanismos de continuidad operativa y respaldo de datos?",
+          "ej": "Réplicas de servidores y backups automáticos",
+          "kpi": "Tiempo de recuperación ante incidentes (RTO) y Punto objetivo de recuperación (RPO)"
+        },
+        {
+          "q": "¿Utilizamos analítica para prever cuellos de botella y costos?",
+          "ej": "Software de simulación para identificar limitaciones",
+          "kpi": "Precisión de predicción de cuellos de botella (%) y Desviación en estimación de costos (%)"
+        },
+        {
+          "q": "¿Basamos cotizaciones y plazos en información real de capacidad?",
+          "ej": "Sistema que cruza capacidad productiva con historial de cumplimiento",
+          "kpi": "Tasa de cumplimiento de plazos (%) y Desviación entre plazo prometido vs. real (días)"
+        },
+        {
+          "q": "¿Monitoreamos la conversión de cotizaciones a pedidos?",
+          "ej": "Dashboard con ratio entre cotizaciones enviadas y órdenes confirmadas",
+          "kpi": "Tasa de conversión de cotizaciones a pedidos (%)"
+        },
+        {
+          "q": "¿Los incentivos comerciales están alineados a rentabilidad y plazos?",
+          "ej": "Esquema de comisiones que considera margen y cumplimiento",
+          "kpi": "Margen promedio por orden and Porcentaje de pedidos entregados a tiempo"
         }
       ]
     }
