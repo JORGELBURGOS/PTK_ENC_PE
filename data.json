@@ -103,7 +103,7 @@
         "Alejandro Osuna",
         "Juan Gonzalez",
         "Luis Barreto",
-        "J. Barredo",
+        "Jeronimo Barredo",
         "Alicia Bel Petro",
         "Alan Heredia"
       ],
@@ -140,7 +140,7 @@
       "speech": "Objetivo: cultivar cultura, motivación y talento; alinear objetivos individuales con estrategia.",
       "interlocutors": [
         "Jimena Embon",
-        "F. Mendoza",
+        "Fernando Mendoza",
         "Daniel Weiss"
       ],
       "questions": [
@@ -176,8 +176,8 @@
       "speech": "Objetivo: exceder expectativas, resolver postventa y entregar a tiempo; fidelización basada en servicio.",
       "interlocutors": [
         "Carlos Puntín",
-        "J. Venturini",
-        "H. Gutierrez",
+        "Juan Venturini",
+        "Héctor Gutierrez",
         "Nicolás Villanueva",
         "Esteban Santa Cruz"
       ],
@@ -244,7 +244,6 @@
       "speech": "Objetivo: sostenibilidad de la operación y cadena de valor; cumplimiento normativo y reducción de huella.",
       "interlocutors": [
         "Cecilia Vilches",
-        "Lautaro Bourdin",
         "Gabriel Narvaez"
       ],
       "questions": [
@@ -384,4 +383,5 @@
     }
   }
 }
+
 
